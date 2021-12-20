@@ -1,0 +1,15 @@
+*.iml
+.idea
+.idea/*
+target
+*.log*
+*.class
+*.swp
+.DS_Store
+.classpath
+.metadata
+.settings
+.project
+.cache
+lib/*
+target/*
