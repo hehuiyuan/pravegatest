@@ -22,6 +22,7 @@ public class PravegaWriterSample {
     public final String scope;
     public final String streamName;
     public final URI controllerURI;
+    public EventStreamWriter<String> writer;
 
     public PravegaWriterSample(String scope, String streamName, URI controllerURI) {
         this.scope = scope;
@@ -29,34 +30,38 @@ public class PravegaWriterSample {
         this.controllerURI = controllerURI;
     }
 
+    public void open() {
+        EventStreamClientFactory clientFactory =
+                EventStreamClientFactory.withScope(
+                        scope, ClientConfig.builder().controllerURI(controllerURI).build());
+        writer =
+                clientFactory.createEventWriter(
+                        streamName,
+                        new UTF8StringSerializer(),
+                        EventWriterConfig.builder().build());
+    }
+
     public void run(String routingKey, String message) {
         StreamManager streamManager = StreamManager.create(controllerURI);
         final boolean scopeIsNew = streamManager.createScope(scope);
 
-        StreamConfiguration streamConfig = StreamConfiguration.builder()
-                .scalingPolicy(ScalingPolicy.fixed(1))
-                .build();
+        StreamConfiguration streamConfig =
+                StreamConfiguration.builder().scalingPolicy(ScalingPolicy.fixed(1)).build();
 
         boolean streamIsNew = streamManager.createStream(scope, streamName, streamConfig);
 
-        try (EventStreamClientFactory clientFactory =
-                     EventStreamClientFactory
-                             .withScope(scope, ClientConfig.builder().controllerURI(controllerURI).build());
-             EventStreamWriter<String> writer =
-                     clientFactory
-                             .createEventWriter(streamName, new UTF8StringSerializer(), EventWriterConfig.builder().build())) {
-            System.out.format("Writing message: '%s' with routing-key: '%s' to stream '%s / %s'%n",
-                    message, routingKey, scope, streamName);
+        System.out.format(
+                "Writing message: '%s' with routing-key: '%s' to stream '%s / %s'%n",
+                message, routingKey, scope, streamName);
 
-            //final CompletableFuture<Void> writeFuture = writer.writeEvent(routingKey, message);
-            final CompletableFuture<Void> writeFuture = writer.writeEvent(message);
-            while (writeFuture.isDone()) {
-                try {
-                    System.err.println("write result " + writeFuture.get());
-                    TimeUnit.SECONDS.sleep(1);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+        // final CompletableFuture<Void> writeFuture = writer.writeEvent(routingKey, message);
+        final CompletableFuture<Void> writeFuture = writer.writeEvent(message);
+        while (writeFuture.isDone()) {
+            try {
+                System.err.println("write result " + writeFuture.get());
+                TimeUnit.SECONDS.sleep(1);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -75,17 +80,33 @@ public class PravegaWriterSample {
             System.exit(1);
         }
 
-        final String scope = cmd.getOptionValue("scope") == null ? Constants.DEFAULT_SCOPE : cmd.getOptionValue("scope");
-        final String streamName = cmd.getOptionValue("name") == null ? Constants.DEFAULT_STREAM_NAME : cmd.getOptionValue("name");
-        final String uriString = cmd.getOptionValue("uri") == null ? Constants.DEFAULT_CONTROLLER_URI : cmd.getOptionValue("uri");
+        final String scope =
+                cmd.getOptionValue("scope") == null
+                        ? Constants.DEFAULT_SCOPE
+                        : cmd.getOptionValue("scope");
+        final String streamName =
+                cmd.getOptionValue("name") == null
+                        ? Constants.DEFAULT_STREAM_NAME
+                        : cmd.getOptionValue("name");
+        final String uriString =
+                cmd.getOptionValue("uri") == null
+                        ? Constants.DEFAULT_CONTROLLER_URI
+                        : cmd.getOptionValue("uri");
         final URI controllerURI = URI.create(uriString);
 
         PravegaWriterSample pws = new PravegaWriterSample(scope, streamName, controllerURI);
 
-        final String routingKey = cmd.getOptionValue("routingKey") == null ? Constants.DEFAULT_ROUTING_KEY : cmd.getOptionValue("routingKey");
-        final String message = cmd.getOptionValue("message") == null ? Constants.DEFAULT_MESSAGE : cmd.getOptionValue("message");
+        final String routingKey =
+                cmd.getOptionValue("routingKey") == null
+                        ? Constants.DEFAULT_ROUTING_KEY
+                        : cmd.getOptionValue("routingKey");
+        final String message =
+                cmd.getOptionValue("message") == null
+                        ? Constants.DEFAULT_MESSAGE
+                        : cmd.getOptionValue("message");
 
-        while(true){
+        pws.open();
+        while (true) {
             pws.run(routingKey, message);
             try {
                 Thread.sleep(1000);
@@ -99,14 +120,16 @@ public class PravegaWriterSample {
         final Options options = new Options();
         options.addOption("s", "scope", true, "The scope name of the stream to read from.");
         options.addOption("n", "name", true, "The name of the stream to read from.");
-        options.addOption("u", "uri", true, "The URI to the controller in the form tcp://host:port");
+        options.addOption(
+                "u", "uri", true, "The URI to the controller in the form tcp://host:port");
         options.addOption("r", "routingKey", true, "The routing key of the message to write.");
         options.addOption("m", "message", true, "The message to write.");
 
         return options;
     }
 
-    private static CommandLine parseCommandLineArgs(Options options, String[] args) throws ParseException {
+    private static CommandLine parseCommandLineArgs(Options options, String[] args)
+            throws ParseException {
         final DefaultParser parser = new DefaultParser();
         return parser.parse(options, args);
     }
