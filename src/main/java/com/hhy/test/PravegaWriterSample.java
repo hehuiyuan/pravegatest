@@ -48,7 +48,8 @@ public class PravegaWriterSample {
             System.out.format("Writing message: '%s' with routing-key: '%s' to stream '%s / %s'%n",
                     message, routingKey, scope, streamName);
 
-            final CompletableFuture<Void> writeFuture = writer.writeEvent(routingKey, message);
+            //final CompletableFuture<Void> writeFuture = writer.writeEvent(routingKey, message);
+            final CompletableFuture<Void> writeFuture = writer.writeEvent(message);
             while (writeFuture.isDone()) {
                 try {
                     System.err.println("write result " + writeFuture.get());
